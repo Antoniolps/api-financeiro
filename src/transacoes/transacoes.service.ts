@@ -1,27 +1,94 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateTransacoeDto } from './dto/create-transacoe.dto';
-import { UpdateTransacoeDto } from './dto/update-transacoe.dto';
+import { CreateTransacaoDto } from './dto/create-transacao.dto';
+import { UpdateTransacaoDto } from './dto/update-transacao.dto';
 
 @Injectable()
 export class TransacoesService {
-  create(createTransacoeDto: CreateTransacoeDto) {
-    return 'This action adds a new transacoe';
+  constructor(private prisma: PrismaService) { }
+
+  create(createTransacaoDto: CreateTransacaoDto) {
+    return this.prisma.transacao.create({
+      data: {
+        descricao: createTransacaoDto.descricao,
+        valor: createTransacaoDto.valor,
+        tipo: createTransacaoDto.tipo,
+        categoriaId: createTransacaoDto.categoriaId,
+        data: createTransacaoDto.data ? new Date(createTransacaoDto.data) : new Date(),
+      },
+      include: {
+        categoria: true,
+      },
+    });
   }
 
-  findAll() {
-    return `This action returns all transacoes`;
+  async findAll() {
+    return this.prisma.transacao.findMany({
+      include: {
+        categoria: true,
+      },
+      orderBy: {
+        data: 'desc',
+      },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} transacoe`;
+  async findOne(id: number) {
+    const transacao = await this.prisma.transacao.findUnique({
+      where: { id },
+      include: {
+        categoria: true,
+      },
+    });
+
+    if (!transacao) {
+      throw new NotFoundException(`Transação com ID ${id} não encontrada`);
+    }
+
+    return transacao;
   }
 
-  update(id: number, updateTransacoeDto: UpdateTransacoeDto) {
-    return `This action updates a #${id} transacoe`;
+  async update(id: number, updateTransacaoDto: UpdateTransacaoDto) {
+    await this.findOne(id); // Verifica se existe
+
+    return this.prisma.transacao.update({
+      where: { id },
+      data: {
+        descricao: updateTransacaoDto.descricao,
+        valor: updateTransacaoDto.valor,
+        tipo: updateTransacaoDto.tipo,
+        categoriaId: updateTransacaoDto.categoriaId,
+        data: updateTransacaoDto.data ? new Date(updateTransacaoDto.data) : undefined,
+      },
+      include: {
+        categoria: true,
+      },
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} transacoe`;
+  async remove(id: number) {
+    await this.findOne(id); // Verifica se existe
+
+    return this.prisma.transacao.delete({
+      where: { id },
+    });
+  }
+
+  async getResumo() {
+    const transacoes = await this.prisma.transacao.findMany();
+
+    const totalReceitas = transacoes
+      .filter((t) => t.tipo === 'receita')
+      .reduce((acc, t) => acc + Number(t.valor), 0);
+
+    const totalDespesas = transacoes
+      .filter((t) => t.tipo === 'despesa')
+      .reduce((acc, t) => acc + Number(t.valor), 0);
+
+    return {
+      totalReceitas,
+      totalDespesas,
+      saldo: totalReceitas - totalDespesas,
+    };
   }
 }

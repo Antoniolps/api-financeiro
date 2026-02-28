@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsNumber, IsEnum, IsInt, IsOptional, IsDateString } from 'class-validator';
-import { TipoTransacao } from '../../generated/prisma/client';
+import { TipoTransacao } from '@prisma/client';
 
-export class CreateTransacoeDto {
+export class CreateTransacaoDto {
     @IsNotEmpty()
     descricao: string;
 
